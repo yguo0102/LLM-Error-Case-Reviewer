@@ -113,7 +113,7 @@ export default function HomePage() {
   };
 
   const parseCSVAndSetCases = (csvFullText: string) => {
-    const trimmedCsvText = csvFullText.trim(); // Trim entire CSV text once
+    const trimmedCsvText = csvFullText.trim(); 
     if (!trimmedCsvText) {
       toast({ title: "Error parsing CSV", description: "CSV file is empty or contains only whitespace.", variant: "destructive" });
       return;
@@ -121,7 +121,6 @@ export default function HomePage() {
 
     let currentIndex = 0;
     
-    // Parse Header Row
     const { line: headerCsvLine, nextIndex: headerEndIndex } = extractNextLogicalLine(trimmedCsvText, currentIndex);
     currentIndex = headerEndIndex;
 
@@ -145,7 +144,7 @@ export default function HomePage() {
     }
 
     const newCases: ErrorCase[] = [];
-    let logicalRowNumber = 1; // Header is row 1
+    let logicalRowNumber = 1; 
 
     while (currentIndex < trimmedCsvText.length) {
         logicalRowNumber++;
@@ -153,7 +152,7 @@ export default function HomePage() {
         currentIndex = dataEndIndex;
 
         const lineContentForParsing = dataCsvLine.trim();
-        if (!lineContentForParsing) continue; // Skip empty logical lines
+        if (!lineContentForParsing) continue; 
 
         const values = csvLineToArray(lineContentForParsing);
 
@@ -191,14 +190,19 @@ export default function HomePage() {
         newCases.push(errorCase);
     }
 
-
     if (newCases.length > 0) {
       setAllCases(newCases);
       setCurrentCaseIndex(0);
       setFilters({ error_type: '', code: '', champsid: '' }); 
       toast({ title: "CSV data loaded successfully!", description: `${newCases.length} cases loaded.` });
-    } else if (headerCsvLine.trim()) { 
+    } else { // This covers newCases.length === 0
+      if (headerCsvLine.trim()) { // Header was found, but no valid data rows resulted from parsing
+        setAllCases([]); // Clear existing cases
+        setCurrentCaseIndex(0);
+        setFilters({ error_type: '', code: '', champsid: '' });
         toast({ title: "No data loaded", description: "No valid data rows found in the CSV. This can happen if all data rows were empty or had parsing issues (e.g., column count mismatch for all rows). Please check individual row warnings.", variant: "default" });
+      }
+      // If headerCsvLine was also empty, the initial check for !trimmedCsvText or !headerCsvLine.trim() would have caught it.
     }
   };
 
@@ -282,6 +286,7 @@ export default function HomePage() {
                   <Select 
                     value={filters.error_type || ALL_FILTER_VALUE} 
                     onValueChange={value => handleFilterChange('error_type', value)}
+                    disabled={allCases.length === 0}
                   >
                     <SelectTrigger id="error_type_filter">
                       <SelectValue placeholder="All Error Types" />
@@ -297,6 +302,7 @@ export default function HomePage() {
                   <Select 
                     value={filters.code || ALL_FILTER_VALUE} 
                     onValueChange={value => handleFilterChange('code', value)}
+                    disabled={allCases.length === 0}
                   >
                     <SelectTrigger id="code_filter">
                       <SelectValue placeholder="All Codes" />
@@ -324,6 +330,7 @@ export default function HomePage() {
                       value={filters.champsid}
                       onChange={e => handleFilterChange('champsid', e.target.value)}
                       className="pl-8"
+                      disabled={allCases.length === 0}
                     />
                   </div>
                 </div>
@@ -354,7 +361,7 @@ export default function HomePage() {
                   </Select>
                 </div>
                 <div className="flex justify-between items-center">
-                  <Button onClick={() => handleNavigate('prev')} disabled={currentCaseIndex <= 0} variant="outline" size="sm">
+                  <Button onClick={() => handleNavigate('prev')} disabled={currentCaseIndex <= 0 || filteredCases.length === 0} variant="outline" size="sm">
                     <ChevronLeft className="h-4 w-4 mr-1" /> Previous
                   </Button>
                   <span className="text-sm text-muted-foreground">
@@ -381,5 +388,6 @@ export default function HomePage() {
     </SidebarProvider>
   );
 }
+    
 
     
