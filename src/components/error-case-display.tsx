@@ -1,10 +1,12 @@
+
 "use client";
 
 import type { ErrorCase } from '@/types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EvidenceHighlighter } from './evidence-highlighter';
-import { AISummary } from './ai-summary';
+// AISummary is no longer used in this card, but might be used elsewhere. Keeping import for now if other plans exist.
+// import { AISummary } from './ai-summary'; 
 import { ScrollArea } from './ui/scroll-area';
 
 interface ErrorCaseDisplayProps {
@@ -37,6 +39,14 @@ export function ErrorCaseDisplay({ errorCase }: ErrorCaseDisplayProps) {
               <h3 className="font-headline text-lg font-semibold mb-1">Full Text:</h3>
               <EvidenceHighlighter text={errorCase.text} evidence={errorCase.evidence} />
             </div>
+            <div>
+              <h3 className="font-headline text-lg font-semibold mb-1">LLM Answer:</h3>
+              <p className="text-sm whitespace-pre-wrap bg-muted/50 p-3 rounded-md">{errorCase.llmAnswer}</p>
+            </div>
+             <div>
+              <h3 className="font-headline text-lg font-semibold mb-1">Diagnosis:</h3>
+              <p className="text-sm whitespace-pre-wrap bg-destructive/10 p-3 rounded-md">{errorCase.diagnosis}</p>
+            </div>
           </CardContent>
         </Card>
 
@@ -45,10 +55,6 @@ export function ErrorCaseDisplay({ errorCase }: ErrorCaseDisplayProps) {
             <CardTitle className="font-headline text-lg">LLM Analysis</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <h4 className="font-semibold mb-1">LLM Answer:</h4>
-              <p className="text-sm whitespace-pre-wrap bg-muted/50 p-3 rounded-md">{errorCase.llmAnswer}</p>
-            </div>
             <div>
               <h4 className="font-semibold mb-1">Evidence Used by LLM:</h4>
               {errorCase.evidence.length > 0 ? (
@@ -63,14 +69,13 @@ export function ErrorCaseDisplay({ errorCase }: ErrorCaseDisplayProps) {
                 <p className="text-sm text-muted-foreground italic">No specific evidence cited by LLM.</p>
               )}
             </div>
-             <div>
-              <h4 className="font-semibold mb-1">Diagnosis:</h4>
-              <p className="text-sm whitespace-pre-wrap bg-destructive/10 p-3 rounded-md">{errorCase.diagnosis}</p>
-            </div>
           </CardContent>
-           <CardFooter>
+          {/* 
+          AISummary related to llmAnswer and diagnosis was here.
+          <CardFooter>
             <AISummary llmAnswer={errorCase.llmAnswer} diagnosis={errorCase.diagnosis} champsid={errorCase.champsid} />
-          </CardFooter>
+          </CardFooter> 
+          */}
         </Card>
 
         <Card className="shadow-md">
