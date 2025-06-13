@@ -70,7 +70,7 @@ export function ErrorCaseDisplay({ errorCase }: ErrorCaseDisplayProps) {
               {errorCase.evidence.length > 0 ? (
                  <ul className="list-disc list-inside pl-4 space-y-1">
                   {errorCase.evidence.map((ev, index) => (
-                    <li key={index} className="text-sm bg-accent/10 p-2 rounded-md">
+                    <li key={index} className="text-sm bg-accent/10 p-2 rounded-md whitespace-pre-wrap">
                       <span className="italic">{ev}</span>
                     </li>
                   ))}
