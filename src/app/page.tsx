@@ -43,6 +43,30 @@ function csvLineToArray(text: string): string[] {
     return result;
 }
 
+// Helper function to extract the next logical CSV line, handling newlines within quoted fields.
+function extractNextLogicalLine(text: string, startIndex: number): { line: string; nextIndex: number } {
+  let inQuotes = false;
+  let endIndex = startIndex;
+  while (endIndex < text.length) {
+    const char = text[endIndex];
+    if (char === '"') {
+      // Check for escaped quote ("")
+      if (inQuotes && endIndex + 1 < text.length && text[endIndex + 1] === '"') {
+        endIndex++; // Increment to include the first quote of the pair, the loop will add the second
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === '\n' && !inQuotes) {
+      // If newline is encountered and not in quotes, it's the end of the logical line
+      break;
+    }
+    endIndex++;
+  }
+  // If endIndex reached text.length, it means the last line doesn't end with \n or it's a quoted multiline field at EOF
+  const line = text.substring(startIndex, endIndex); // endIndex will be at \n or text.length
+  return { line, nextIndex: endIndex < text.length ? endIndex + 1 : text.length }; // nextIndex skips the \n
+}
+
 
 export default function HomePage() {
   const [allCases, setAllCases] = useState<ErrorCase[]>(mockErrorCases);
@@ -88,14 +112,25 @@ export default function HomePage() {
     }
   };
 
-  const parseCSVAndSetCases = (csvText: string) => {
-    const lines = csvText.trim().split('\n');
-    if (lines.length < 2) {
-      toast({ title: "Error parsing CSV", description: "CSV file must have a header and at least one data row.", variant: "destructive" });
+  const parseCSVAndSetCases = (csvFullText: string) => {
+    const trimmedCsvText = csvFullText.trim(); // Trim entire CSV text once
+    if (!trimmedCsvText) {
+      toast({ title: "Error parsing CSV", description: "CSV file is empty or contains only whitespace.", variant: "destructive" });
       return;
     }
 
-    const parsedHeaders = csvLineToArray(lines[0]);
+    let currentIndex = 0;
+    
+    // Parse Header Row
+    const { line: headerCsvLine, nextIndex: headerEndIndex } = extractNextLogicalLine(trimmedCsvText, currentIndex);
+    currentIndex = headerEndIndex;
+
+    if (!headerCsvLine.trim()) {
+        toast({ title: "Error parsing CSV", description: "CSV file is missing a header row.", variant: "destructive" });
+        return;
+    }
+    
+    const parsedHeaders = csvLineToArray(headerCsvLine.trim());
     const headers = parsedHeaders.map(h => h.toLowerCase().trim());
     const requiredHeaders = ['champsid', 'text', 'code', 'code_description', 'diagnosis', 'error_type', 'llmanswer', 'evidence'];
     const missingHeaders = requiredHeaders.filter(rh => !headers.includes(rh));
@@ -110,52 +145,59 @@ export default function HomePage() {
     }
 
     const newCases: ErrorCase[] = [];
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue; // Skip empty lines
+    let logicalRowNumber = 1; // Header is row 1
 
-      const values = csvLineToArray(line);
+    while (currentIndex < trimmedCsvText.length) {
+        logicalRowNumber++;
+        const { line: dataCsvLine, nextIndex: dataEndIndex } = extractNextLogicalLine(trimmedCsvText, currentIndex);
+        currentIndex = dataEndIndex;
 
-      if (values.length !== headers.length) {
-        const lineSnippet = line.substring(0, 70) + (line.length > 70 ? '...' : '');
-        toast({ 
-          title: "Warning parsing CSV row", 
-          description: `Row ${i + 1} (starts with: "${lineSnippet}") has ${values.length} columns, expected ${headers.length}. Skipping this row. Check for unquoted commas, or formatting issues like newlines within fields.`, 
-          variant: "destructive" 
+        const lineContentForParsing = dataCsvLine.trim();
+        if (!lineContentForParsing) continue; // Skip empty logical lines
+
+        const values = csvLineToArray(lineContentForParsing);
+
+        if (values.length !== headers.length) {
+            const lineSnippet = lineContentForParsing.substring(0, 70) + (lineContentForParsing.length > 70 ? '...' : '');
+            toast({ 
+            title: "Warning parsing CSV row", 
+            description: `Row ${logicalRowNumber} (starts with: "${lineSnippet}") has ${values.length} columns, expected ${headers.length}. Skipping this row. Check for unquoted commas or formatting issues.`, 
+            variant: "destructive" 
+            });
+            continue;
+        }
+
+        const entry: any = {};
+        headers.forEach((header, index) => {
+            entry[header] = values[index] || ""; 
         });
-        continue;
-      }
+        
+        let evidenceArray: string[] = [];
+        const evidenceRaw = entry.evidence || ""; 
+        if (evidenceRaw && evidenceRaw.trim() !== "") {
+            evidenceArray = [evidenceRaw.trim()]; 
+        }
 
-      const entry: any = {};
-      headers.forEach((header, index) => {
-        entry[header] = values[index] || ""; // 'header' is already lowercased here
-      });
-      
-      let evidenceArray: string[] = [];
-      const evidenceRaw = entry.evidence || ""; 
-      if (evidenceRaw && evidenceRaw.trim() !== "") {
-        evidenceArray = [evidenceRaw.trim()]; 
-      }
-
-      const errorCase: ErrorCase = {
-        champsid: entry.champsid || `GEN_ID_${Date.now()}_${i}`,
-        text: entry.text || "",
-        code: entry.code || "",
-        code_description: entry.code_description || "",
-        diagnosis: entry.diagnosis || "",
-        error_type: entry.error_type || "",
-        llmAnswer: entry.llmanswer || "", // CSV header 'llmanswer' maps to this
-        evidence: evidenceArray,
-      };
-      newCases.push(errorCase);
+        const errorCase: ErrorCase = {
+            champsid: entry.champsid || `GEN_ID_${Date.now()}_${logicalRowNumber}`,
+            text: entry.text || "",
+            code: entry.code || "",
+            code_description: entry.code_description || "",
+            diagnosis: entry.diagnosis || "",
+            error_type: entry.error_type || "",
+            llmAnswer: entry.llmanswer || "", 
+            evidence: evidenceArray,
+        };
+        newCases.push(errorCase);
     }
+
 
     if (newCases.length > 0) {
       setAllCases(newCases);
       setCurrentCaseIndex(0);
-      setFilters({ error_type: '', code: '', champsid: '' }); // Reset filters
+      setFilters({ error_type: '', code: '', champsid: '' }); 
       toast({ title: "CSV data loaded successfully!", description: `${newCases.length} cases loaded.` });
-    } else if (lines.length > 1) { // Header was present, but no data rows were successfully parsed
+    } else if (headerCsvLine.trim()) { 
         toast({ title: "No data loaded", description: "No valid data rows found in the CSV. This can happen if all data rows were empty or had parsing issues (e.g., column count mismatch for all rows). Please check individual row warnings.", variant: "default" });
     }
   };
@@ -165,7 +207,7 @@ export default function HomePage() {
     if (file) {
       if (file.type !== "text/csv") {
         toast({ title: "Invalid file type", description: "Please upload a .csv file.", variant: "destructive" });
-        event.target.value = ""; // Reset file input
+        event.target.value = ""; 
         return;
       }
       const reader = new FileReader();
@@ -176,11 +218,11 @@ export default function HomePage() {
         } else {
           toast({ title: "Error reading file", description: "Could not read file content.", variant: "destructive" });
         }
-        event.target.value = ""; // Reset file input after processing
+        event.target.value = ""; 
       };
       reader.onerror = () => {
         toast({ title: "Error reading file", description: "An error occurred while trying to read the file.", variant: "destructive" });
-        event.target.value = ""; // Reset file input on error
+        event.target.value = ""; 
       };
       reader.readAsText(file);
     }
@@ -219,7 +261,7 @@ export default function HomePage() {
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     Headers (case-insensitive, trimmed): champsid, text, code, code_description, diagnosis, error_type, llmanswer, evidence.
-                    'evidence' column should contain textual evidence as a single string. Note: Newlines within a single field are not supported and may cause parsing errors.
+                    'evidence' column should contain textual evidence as a single string. Fields can contain newlines if properly quoted.
                   </p>
                 </div>
               </CardContent>
@@ -262,8 +304,10 @@ export default function HomePage() {
                     <SelectContent>
                       <SelectItem value={ALL_FILTER_VALUE}>All Codes</SelectItem>
                       {uniqueCodes.map((code, i) => (
-                        <SelectItem key={i} value={code}>
-                          <span className="font-code truncate block max-w-xs">{code.split('\n')[0]}...</span>
+                        <SelectItem key={i} value={code || `_EMPTY_CODE_${i}`}>
+                          <span className="font-code truncate block max-w-xs">
+                            {code ? (code.split('\n')[0] + (code.includes('\n') || code.length > 30 ? '...' : '')) : '(Empty Code)'}
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -330,7 +374,7 @@ export default function HomePage() {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <div className="h-screen"> {/* Ensure SidebarInset's child takes full height */}
+        <div className="h-screen"> 
           <ErrorCaseDisplay errorCase={currentCase} />
         </div>
       </SidebarInset>
@@ -338,3 +382,4 @@ export default function HomePage() {
   );
 }
 
+    
