@@ -56,10 +56,10 @@ export default function HomePage() {
 
   useEffect(() => {
     let cases = allCases;
-    if (filters.error_type) {
+    if (filters.error_type && filters.error_type !== ALL_FILTER_VALUE) {
       cases = cases.filter(c => c.error_type === filters.error_type);
     }
-    if (filters.code) {
+    if (filters.code && filters.code !== ALL_FILTER_VALUE) {
       cases = cases.filter(c => c.code === filters.code);
     }
     if (filters.champsid) {
@@ -95,30 +95,40 @@ export default function HomePage() {
       return;
     }
 
-    const headers = csvLineToArray(lines[0]).map(h => h.toLowerCase().trim());
+    const parsedHeaders = csvLineToArray(lines[0]);
+    const headers = parsedHeaders.map(h => h.toLowerCase().trim());
     const requiredHeaders = ['champsid', 'text', 'code', 'code_description', 'diagnosis', 'error_type', 'llmanswer', 'evidence'];
     const missingHeaders = requiredHeaders.filter(rh => !headers.includes(rh));
     
     if (missingHeaders.length > 0) {
-      toast({ title: "Error parsing CSV", description: `Missing required headers: ${missingHeaders.join(', ')}. Note: 'llmAnswer' in type is 'llmanswer' in CSV header. Ensure headers are correct and try again.`, variant: "destructive" });
+      toast({ 
+        title: "Error parsing CSV Headers", 
+        description: `Missing required headers: ${missingHeaders.join(', ')}. Found headers in your file: ${parsedHeaders.join(', ')}. Note: 'llmAnswer' in type is 'llmanswer' in CSV header. Ensure headers are correct and try again.`, 
+        variant: "destructive" 
+      });
       return;
     }
 
     const newCases: ErrorCase[] = [];
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
-      if (!line) continue;
+      if (!line) continue; // Skip empty lines
 
       const values = csvLineToArray(line);
 
       if (values.length !== headers.length) {
-        toast({ title: "Warning parsing CSV row", description: `Row ${i + 1} has ${values.length} columns, expected ${headers.length}. Skipping this row. Check for unquoted commas or formatting issues.`, variant: "destructive" });
+        const lineSnippet = line.substring(0, 70) + (line.length > 70 ? '...' : '');
+        toast({ 
+          title: "Warning parsing CSV row", 
+          description: `Row ${i + 1} (starts with: "${lineSnippet}") has ${values.length} columns, expected ${headers.length}. Skipping this row. Check for unquoted commas, or formatting issues like newlines within fields.`, 
+          variant: "destructive" 
+        });
         continue;
       }
 
       const entry: any = {};
       headers.forEach((header, index) => {
-        entry[header] = values[index] || "";
+        entry[header] = values[index] || ""; // 'header' is already lowercased here
       });
       
       let evidenceArray: string[] = [];
@@ -134,24 +144,19 @@ export default function HomePage() {
         code_description: entry.code_description || "",
         diagnosis: entry.diagnosis || "",
         error_type: entry.error_type || "",
-        llmAnswer: entry.llmanswer || "", 
+        llmAnswer: entry.llmanswer || "", // CSV header 'llmanswer' maps to this
         evidence: evidenceArray,
       };
-
-      // The fallback ID generation ensures errorCase.champsid is always populated.
-      // The original check `if (!errorCase.champsid)` would effectively never trigger.
-      // If a champsid is critical, the check should be on `entry.champsid` before fallback.
-      // For now, we assume generated IDs are acceptable if champsid is missing from CSV.
       newCases.push(errorCase);
     }
 
     if (newCases.length > 0) {
       setAllCases(newCases);
       setCurrentCaseIndex(0);
-      setFilters({ error_type: '', code: '', champsid: '' });
+      setFilters({ error_type: '', code: '', champsid: '' }); // Reset filters
       toast({ title: "CSV data loaded successfully!", description: `${newCases.length} cases loaded.` });
-    } else if (lines.length > 1) {
-        toast({ title: "No data loaded", description: "No valid data rows found in the CSV. This can happen if all data rows were empty or had parsing issues (e.g., column count mismatch).", variant: "default" });
+    } else if (lines.length > 1) { // Header was present, but no data rows were successfully parsed
+        toast({ title: "No data loaded", description: "No valid data rows found in the CSV. This can happen if all data rows were empty or had parsing issues (e.g., column count mismatch for all rows). Please check individual row warnings.", variant: "default" });
     }
   };
 
@@ -160,7 +165,7 @@ export default function HomePage() {
     if (file) {
       if (file.type !== "text/csv") {
         toast({ title: "Invalid file type", description: "Please upload a .csv file.", variant: "destructive" });
-        event.target.value = ""; 
+        event.target.value = ""; // Reset file input
         return;
       }
       const reader = new FileReader();
@@ -171,11 +176,11 @@ export default function HomePage() {
         } else {
           toast({ title: "Error reading file", description: "Could not read file content.", variant: "destructive" });
         }
-        event.target.value = ""; 
+        event.target.value = ""; // Reset file input after processing
       };
       reader.onerror = () => {
         toast({ title: "Error reading file", description: "An error occurred while trying to read the file.", variant: "destructive" });
-        event.target.value = ""; 
+        event.target.value = ""; // Reset file input on error
       };
       reader.readAsText(file);
     }
@@ -214,7 +219,7 @@ export default function HomePage() {
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     Headers (case-insensitive, trimmed): champsid, text, code, code_description, diagnosis, error_type, llmanswer, evidence.
-                    'evidence' column should contain the textual evidence as a single string.
+                    'evidence' column should contain textual evidence as a single string. Note: Newlines within a single field are not supported and may cause parsing errors.
                   </p>
                 </div>
               </CardContent>
