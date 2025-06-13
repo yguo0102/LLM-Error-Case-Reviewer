@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -13,6 +14,8 @@ import { SidebarProvider, Sidebar, SidebarHeader, SidebarTrigger, SidebarContent
 import { Separator } from '@/components/ui/separator';
 import { Filter, ListFilter, ChevronLeft, ChevronRight, Search, FileText, SlidersHorizontal } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+
+const ALL_FILTER_VALUE = "__ALL_OPTIONS__";
 
 export default function HomePage() {
   const [allCases] = useState<ErrorCase[]>(mockErrorCases);
@@ -39,7 +42,7 @@ export default function HomePage() {
   }, [filters, allCases]);
 
   const handleFilterChange = (filterName: keyof Filters, value: string) => {
-    setFilters(prev => ({ ...prev, [filterName]: value }));
+    setFilters(prev => ({ ...prev, [filterName]: value === ALL_FILTER_VALUE ? '' : value }));
   };
 
   const handleNavigate = (direction: 'prev' | 'next') => {
@@ -81,24 +84,30 @@ export default function HomePage() {
               <CardContent className="space-y-4">
                 <div>
                   <Label htmlFor="error_type_filter">Error Type</Label>
-                  <Select value={filters.error_type} onValueChange={value => handleFilterChange('error_type', value)}>
+                  <Select 
+                    value={filters.error_type || ALL_FILTER_VALUE} 
+                    onValueChange={value => handleFilterChange('error_type', value)}
+                  >
                     <SelectTrigger id="error_type_filter">
                       <SelectValue placeholder="All Error Types" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Error Types</SelectItem>
+                      <SelectItem value={ALL_FILTER_VALUE}>All Error Types</SelectItem>
                       {uniqueErrorTypes.map(et => <SelectItem key={et} value={et}>{et}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
                   <Label htmlFor="code_filter">Code Snippet</Label>
-                  <Select value={filters.code} onValueChange={value => handleFilterChange('code', value)}>
+                  <Select 
+                    value={filters.code || ALL_FILTER_VALUE} 
+                    onValueChange={value => handleFilterChange('code', value)}
+                  >
                     <SelectTrigger id="code_filter">
                       <SelectValue placeholder="All Codes" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Codes</SelectItem>
+                      <SelectItem value={ALL_FILTER_VALUE}>All Codes</SelectItem>
                       {uniqueCodes.map((code, i) => (
                         <SelectItem key={i} value={code}>
                           <span className="font-code truncate block max-w-xs">{code.split('\n')[0]}...</span>
