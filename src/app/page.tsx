@@ -77,7 +77,7 @@ export default function HomePage() {
     if (direction === 'prev' && currentCaseIndex > 0) {
       setCurrentCaseIndex(prev => prev - 1);
     } else if (direction === 'next' && currentCaseIndex < filteredCases.length - 1) {
-      setCurrentCaseIndex(prev => prev - 1);
+      setCurrentCaseIndex(prev => prev + 1);
     }
   };
   
@@ -95,12 +95,12 @@ export default function HomePage() {
       return;
     }
 
-    const headers = csvLineToArray(lines[0]).map(h => h.toLowerCase());
+    const headers = csvLineToArray(lines[0]).map(h => h.toLowerCase().trim());
     const requiredHeaders = ['champsid', 'text', 'code', 'code_description', 'diagnosis', 'error_type', 'llmanswer', 'evidence'];
-    const missingHeaders = requiredHeaders.filter(rh => !headers.includes(rh.toLowerCase()));
+    const missingHeaders = requiredHeaders.filter(rh => !headers.includes(rh));
     
     if (missingHeaders.length > 0) {
-      toast({ title: "Error parsing CSV", description: `Missing required headers: ${missingHeaders.join(', ')}. Note: 'llmAnswer' in type is 'llmanswer' in CSV header.`, variant: "destructive" });
+      toast({ title: "Error parsing CSV", description: `Missing required headers: ${missingHeaders.join(', ')}. Note: 'llmAnswer' in type is 'llmanswer' in CSV header. Ensure headers are correct and try again.`, variant: "destructive" });
       return;
     }
 
@@ -112,7 +112,7 @@ export default function HomePage() {
       const values = csvLineToArray(line);
 
       if (values.length !== headers.length) {
-        toast({ title: "Warning parsing CSV", description: `Row ${i + 1} has ${values.length} columns, expected ${headers.length}. Skipping.`, variant: "default" });
+        toast({ title: "Warning parsing CSV row", description: `Row ${i + 1} has ${values.length} columns, expected ${headers.length}. Skipping this row. Check for unquoted commas or formatting issues.`, variant: "destructive" });
         continue;
       }
 
@@ -122,9 +122,9 @@ export default function HomePage() {
       });
       
       let evidenceArray: string[] = [];
-      const evidenceRaw = entry.evidence || ""; // 'evidence' is the header name from CSV
+      const evidenceRaw = entry.evidence || ""; 
       if (evidenceRaw && evidenceRaw.trim() !== "") {
-        evidenceArray = [evidenceRaw.trim()]; // Treat the string as a single piece of evidence
+        evidenceArray = [evidenceRaw.trim()]; 
       }
 
       const errorCase: ErrorCase = {
@@ -134,14 +134,14 @@ export default function HomePage() {
         code_description: entry.code_description || "",
         diagnosis: entry.diagnosis || "",
         error_type: entry.error_type || "",
-        llmAnswer: entry.llmanswer || "", // CSV header is 'llmanswer'
+        llmAnswer: entry.llmanswer || "", 
         evidence: evidenceArray,
       };
 
-      if (!errorCase.champsid) {
-          toast({ title: "Warning parsing CSV", description: `Row ${i+1} is missing champsid. Skipping.`, variant: "default" });
-          continue;
-      }
+      // The fallback ID generation ensures errorCase.champsid is always populated.
+      // The original check `if (!errorCase.champsid)` would effectively never trigger.
+      // If a champsid is critical, the check should be on `entry.champsid` before fallback.
+      // For now, we assume generated IDs are acceptable if champsid is missing from CSV.
       newCases.push(errorCase);
     }
 
@@ -151,7 +151,7 @@ export default function HomePage() {
       setFilters({ error_type: '', code: '', champsid: '' });
       toast({ title: "CSV data loaded successfully!", description: `${newCases.length} cases loaded.` });
     } else if (lines.length > 1) {
-        toast({ title: "No data loaded", description: "No valid data rows found in the CSV.", variant: "default" });
+        toast({ title: "No data loaded", description: "No valid data rows found in the CSV. This can happen if all data rows were empty or had parsing issues (e.g., column count mismatch).", variant: "default" });
     }
   };
 
@@ -160,7 +160,7 @@ export default function HomePage() {
     if (file) {
       if (file.type !== "text/csv") {
         toast({ title: "Invalid file type", description: "Please upload a .csv file.", variant: "destructive" });
-        event.target.value = ""; // Reset file input
+        event.target.value = ""; 
         return;
       }
       const reader = new FileReader();
@@ -171,11 +171,11 @@ export default function HomePage() {
         } else {
           toast({ title: "Error reading file", description: "Could not read file content.", variant: "destructive" });
         }
-        event.target.value = ""; // Reset file input after processing
+        event.target.value = ""; 
       };
       reader.onerror = () => {
         toast({ title: "Error reading file", description: "An error occurred while trying to read the file.", variant: "destructive" });
-        event.target.value = ""; // Reset file input
+        event.target.value = ""; 
       };
       reader.readAsText(file);
     }
@@ -213,7 +213,7 @@ export default function HomePage() {
                     className="mt-1 file:mr-2 file:rounded file:border-0 file:bg-primary/10 file:px-2 file:py-1 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Headers (case-insensitive): champsid, text, code, code_description, diagnosis, error_type, llmanswer, evidence.
+                    Headers (case-insensitive, trimmed): champsid, text, code, code_description, diagnosis, error_type, llmanswer, evidence.
                     'evidence' column should contain the textual evidence as a single string.
                   </p>
                 </div>
@@ -332,3 +332,4 @@ export default function HomePage() {
     </SidebarProvider>
   );
 }
+
