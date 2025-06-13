@@ -77,7 +77,7 @@ export default function HomePage() {
     if (direction === 'prev' && currentCaseIndex > 0) {
       setCurrentCaseIndex(prev => prev - 1);
     } else if (direction === 'next' && currentCaseIndex < filteredCases.length - 1) {
-      setCurrentCaseIndex(prev => prev + 1);
+      setCurrentCaseIndex(prev => prev - 1);
     }
   };
   
@@ -122,20 +122,9 @@ export default function HomePage() {
       });
       
       let evidenceArray: string[] = [];
-      const evidenceRaw = entry.evidence || "";
+      const evidenceRaw = entry.evidence || ""; // 'evidence' is the header name from CSV
       if (evidenceRaw && evidenceRaw.trim() !== "") {
-          try {
-              const parsed = JSON.parse(evidenceRaw);
-              if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
-                  evidenceArray = parsed;
-              } else {
-                  console.warn(`Evidence for ${entry.champsid} is not a valid JSON array of strings. Found:`, evidenceRaw);
-                  toast({ title: "Warning parsing CSV", description: `Evidence for ${entry.champsid || `Row ${i+1}`} is not a valid JSON array. Using empty array.`, variant: "default" });
-              }
-          } catch (jsonError) {
-              console.warn(`Failed to parse evidence as JSON for ${entry.champsid}:`, evidenceRaw, jsonError);
-              toast({ title: "Warning parsing CSV", description: `Malformed JSON in 'evidence' for ${entry.champsid || `Row ${i+1}`}. Using empty array.`, variant: "default" });
-          }
+        evidenceArray = [evidenceRaw.trim()]; // Treat the string as a single piece of evidence
       }
 
       const errorCase: ErrorCase = {
@@ -225,7 +214,7 @@ export default function HomePage() {
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     Headers (case-insensitive): champsid, text, code, code_description, diagnosis, error_type, llmanswer, evidence.
-                    'evidence' column must be a JSON string array (e.g., `["item1", "item2"]`).
+                    'evidence' column should contain the textual evidence as a single string.
                   </p>
                 </div>
               </CardContent>
@@ -343,4 +332,3 @@ export default function HomePage() {
     </SidebarProvider>
   );
 }
-
