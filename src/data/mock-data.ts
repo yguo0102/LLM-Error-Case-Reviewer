@@ -1,6 +1,7 @@
 import type { ErrorCase } from '@/types';
 
-export const mockErrorCases: ErrorCase[] = [
+// Note: internalId will be added by the HomePage component when initializing state
+export const mockErrorCases: Omit<ErrorCase, 'internalId'>[] = [
   {
     champsid: 'CHMPS001',
     text: "The user wants to create a new file. The function `createFile(name)` should be used. Evidence suggests this is a critical operation that needs logging. The system also supports `makeFile(filename)` as an alias.",

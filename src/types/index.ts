@@ -1,4 +1,5 @@
 export interface ErrorCase {
+  internalId: string; // Added for unique identification within the app
   champsid: string;
   text: string;
   code: string;

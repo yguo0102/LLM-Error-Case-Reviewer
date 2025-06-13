@@ -2,11 +2,10 @@
 "use client";
 
 import type { ErrorCase } from '@/types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EvidenceHighlighter } from './evidence-highlighter';
-// AISummary is no longer used in this card, but might be used elsewhere. Keeping import for now if other plans exist.
-// import { AISummary } from './ai-summary'; 
+import { AISummary } from './ai-summary'; 
 import { ScrollArea } from './ui/scroll-area';
 
 interface ErrorCaseDisplayProps {
@@ -48,6 +47,10 @@ export function ErrorCaseDisplay({ errorCase }: ErrorCaseDisplayProps) {
               <p className="text-sm whitespace-pre-wrap bg-destructive/10 p-3 rounded-md">{errorCase.diagnosis}</p>
             </div>
           </CardContent>
+           <CardFooter>
+            {/* Pass internalId to AISummary */}
+            <AISummary llmAnswer={errorCase.llmAnswer} diagnosis={errorCase.diagnosis} internalId={errorCase.internalId} />
+          </CardFooter>
         </Card>
 
         <Card className="shadow-md">
@@ -70,12 +73,6 @@ export function ErrorCaseDisplay({ errorCase }: ErrorCaseDisplayProps) {
               )}
             </div>
           </CardContent>
-          {/* 
-          AISummary related to llmAnswer and diagnosis was here.
-          <CardFooter>
-            <AISummary llmAnswer={errorCase.llmAnswer} diagnosis={errorCase.diagnosis} champsid={errorCase.champsid} />
-          </CardFooter> 
-          */}
         </Card>
 
         <Card className="shadow-md">

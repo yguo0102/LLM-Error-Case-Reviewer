@@ -69,7 +69,12 @@ function extractNextLogicalLine(text: string, startIndex: number): { line: strin
 
 
 export default function HomePage() {
-  const [allCases, setAllCases] = useState<ErrorCase[]>(mockErrorCases);
+  const [allCases, setAllCases] = useState<ErrorCase[]>(
+    mockErrorCases.map((c, index) => ({
+      ...c,
+      internalId: `mock-${index}-${c.champsid}`, // Assign unique internalId to mock data
+    }))
+  );
   const [filteredCases, setFilteredCases] = useState<ErrorCase[]>(allCases);
   const [currentCaseIndex, setCurrentCaseIndex] = useState<number>(0);
   const [filters, setFilters] = useState<Filters>({ error_type: '', code: '', champsid: '' });
@@ -105,8 +110,8 @@ export default function HomePage() {
     }
   };
   
-  const handleSelectCase = (champsid: string) => {
-    const index = filteredCases.findIndex(c => c.champsid === champsid);
+  const handleSelectCase = (internalId: string) => {
+    const index = filteredCases.findIndex(c => c.internalId === internalId);
     if (index !== -1) {
       setCurrentCaseIndex(index);
     }
@@ -137,7 +142,7 @@ export default function HomePage() {
     if (missingHeaders.length > 0) {
       toast({ 
         title: "Error parsing CSV Headers", 
-        description: `Missing required headers: ${missingHeaders.join(', ')}. Found headers in your file: ${parsedHeaders.join(', ')}. Note: 'llmAnswer' in type is 'llmanswer' in CSV header. Ensure headers are correct and try again.`, 
+        description: `Missing required headers: ${missingHeaders.join(', ')}. Found headers in your file: ${parsedHeaders.join(', ')}. Note: 'llmAnswer' in type is 'llmanswer' in CSV header. Ensure headers are correct and try again. Case-insensitive and trimmed.`, 
         variant: "destructive" 
       });
       return;
@@ -160,7 +165,7 @@ export default function HomePage() {
             const lineSnippet = lineContentForParsing.substring(0, 70) + (lineContentForParsing.length > 70 ? '...' : '');
             toast({ 
             title: "Warning parsing CSV row", 
-            description: `Row ${logicalRowNumber} (starts with: "${lineSnippet}") has ${values.length} columns, expected ${headers.length}. Skipping this row. Check for unquoted commas or formatting issues.`, 
+            description: `Row ${logicalRowNumber} (starts with: "${lineSnippet}") has ${values.length} columns, expected ${headers.length}. Skipping this row. Check for unquoted commas or formatting issues. Newlines in quoted fields are supported.`, 
             variant: "destructive" 
             });
             continue;
@@ -178,6 +183,7 @@ export default function HomePage() {
         }
 
         const errorCase: ErrorCase = {
+            internalId: `csv-${logicalRowNumber}-${Date.now()}-${entry.champsid || 'no_id'}`, // Generate unique internalId
             champsid: entry.champsid || `GEN_ID_${Date.now()}_${logicalRowNumber}`,
             text: entry.text || "",
             code: entry.code || "",
@@ -195,14 +201,13 @@ export default function HomePage() {
       setCurrentCaseIndex(0);
       setFilters({ error_type: '', code: '', champsid: '' }); 
       toast({ title: "CSV data loaded successfully!", description: `${newCases.length} cases loaded.` });
-    } else { // This covers newCases.length === 0
-      if (headerCsvLine.trim()) { // Header was found, but no valid data rows resulted from parsing
-        setAllCases([]); // Clear existing cases
+    } else { 
+      if (headerCsvLine.trim()) { 
+        setAllCases([]); 
         setCurrentCaseIndex(0);
         setFilters({ error_type: '', code: '', champsid: '' });
         toast({ title: "No data loaded", description: "No valid data rows found in the CSV. This can happen if all data rows were empty or had parsing issues (e.g., column count mismatch for all rows). Please check individual row warnings.", variant: "default" });
       }
-      // If headerCsvLine was also empty, the initial check for !trimmedCsvText or !headerCsvLine.trim() would have caught it.
     }
   };
 
@@ -349,13 +354,17 @@ export default function HomePage() {
               <CardContent className="space-y-4">
                  <div>
                   <Label htmlFor="case_selector">Go to Case</Label>
-                  <Select value={currentCase?.champsid || ""} onValueChange={handleSelectCase} disabled={filteredCases.length === 0}>
+                  <Select 
+                    value={currentCase?.internalId || ""} 
+                    onValueChange={handleSelectCase} 
+                    disabled={filteredCases.length === 0}
+                  >
                     <SelectTrigger id="case_selector" >
                       <SelectValue placeholder="Select a case ID" />
                     </SelectTrigger>
                     <SelectContent>
                       {filteredCases.map(c => (
-                        <SelectItem key={c.champsid} value={c.champsid}>{c.champsid}</SelectItem>
+                        <SelectItem key={c.internalId} value={c.internalId}>{c.champsid} {c.internalId.startsWith('csv-') ? `(CSV Row ${c.internalId.split('-')[1]})` : ''}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

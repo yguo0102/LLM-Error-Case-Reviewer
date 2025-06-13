@@ -10,16 +10,16 @@ import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 interface AISummaryProps {
   llmAnswer: string;
   diagnosis: string;
-  champsid: string; // Add champsid to reset summary on case change
+  internalId: string; // Changed from champsid to the unique internal ID
 }
 
-export function AISummary({ llmAnswer, diagnosis, champsid }: AISummaryProps) {
+export function AISummary({ llmAnswer, diagnosis, internalId }: AISummaryProps) {
   const [summary, setSummary] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Reset summary when champsid changes, indicating a new case
+    // Reset summary when internalId changes, indicating a new case
     setSummary(null);
     setError(null);
     setIsLoading(true);
@@ -40,12 +40,16 @@ export function AISummary({ llmAnswer, diagnosis, champsid }: AISummaryProps) {
       fetchSummary();
     } else {
       setIsLoading(false);
-      setError("Missing LLM answer or diagnosis for summary generation.");
+      // Do not set an error if llmAnswer or diagnosis is simply not provided yet.
+      // Let the UI show "No data provided" in that case.
+      if (!llmAnswer || !diagnosis) {
+         setSummary(null); // Ensure summary is cleared if inputs are missing
+      }
     }
-  }, [llmAnswer, diagnosis, champsid]); // Add champsid to dependency array
+  }, [llmAnswer, diagnosis, internalId]); // Use internalId in dependency array
 
   return (
-    <Card>
+    <Card className="w-full"> {/* Make card take full width of its container */}
       <CardHeader>
         <CardTitle className="font-headline text-lg">AI-Powered Summary</CardTitle>
       </CardHeader>
@@ -65,8 +69,11 @@ export function AISummary({ llmAnswer, diagnosis, champsid }: AISummaryProps) {
            </Alert>
         )}
         {!isLoading && !error && summary && <p className="text-sm">{summary}</p>}
-        {!isLoading && !error && !summary && !llmAnswer && !diagnosis && (
-            <p className="text-sm text-muted-foreground">No data provided for summary.</p>
+        {!isLoading && !error && !summary && (llmAnswer && diagnosis) && (
+            <p className="text-sm text-muted-foreground">Generating summary...</p> 
+        )}
+        {!isLoading && !error && !summary && (!llmAnswer || !diagnosis) && (
+            <p className="text-sm text-muted-foreground">Not enough data to generate summary (missing LLM answer or diagnosis).</p>
         )}
       </CardContent>
     </Card>
