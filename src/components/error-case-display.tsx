@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { EvidenceHighlighter } from './evidence-highlighter';
 import { AISummary } from './ai-summary'; 
 import { ScrollArea } from './ui/scroll-area';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 interface ErrorCaseDisplayProps {
   errorCase: ErrorCase | null;
@@ -24,34 +25,42 @@ export function ErrorCaseDisplay({ errorCase }: ErrorCaseDisplayProps) {
   return (
     <ScrollArea className="h-full p-1">
       <div className="space-y-6 p-4 md:p-6">
-        <Card className="shadow-lg">
-          <CardHeader>
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle className="font-headline text-2xl">Case ID: {errorCase.champsid}</CardTitle>
-                <CardDescription>Error Type: <Badge variant="destructive" className="ml-1">{errorCase.error_type}</Badge></CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h3 className="font-headline text-lg font-semibold mb-1">Full Text:</h3>
-              <EvidenceHighlighter text={errorCase.text} evidence={errorCase.evidence} />
-            </div>
-            <div>
-              <h3 className="font-headline text-lg font-semibold mb-1">LLM Answer:</h3>
-              <p className="text-sm whitespace-pre-wrap bg-muted/50 p-3 rounded-md">{errorCase.llmAnswer}</p>
-            </div>
-             <div>
-              <h3 className="font-headline text-lg font-semibold mb-1">Diagnosis:</h3>
-              <p className="text-sm whitespace-pre-wrap bg-destructive/10 p-3 rounded-md">{errorCase.diagnosis}</p>
-            </div>
-          </CardContent>
-           <CardFooter>
-            {/* Pass internalId to AISummary */}
-            <AISummary llmAnswer={errorCase.llmAnswer} diagnosis={errorCase.diagnosis} internalId={errorCase.internalId} />
-          </CardFooter>
-        </Card>
+        <Accordion type="single" collapsible defaultValue="item-1" className="w-full">
+          <AccordionItem value="item-1" className="border-none">
+            <Card className="shadow-lg">
+              <AccordionTrigger className="hover:no-underline">
+                <CardHeader className="flex-1 p-6 text-left">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="font-headline text-2xl">Case ID: {errorCase.champsid}</CardTitle>
+                      <CardDescription>Error Type: <Badge variant="destructive" className="ml-1">{errorCase.error_type}</Badge></CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+              </AccordionTrigger>
+              <AccordionContent>
+                <CardContent className="space-y-4 pt-0">
+                  <div>
+                    <h3 className="font-headline text-lg font-semibold mb-1">Full Text:</h3>
+                    <EvidenceHighlighter text={errorCase.text} evidence={errorCase.evidence} />
+                  </div>
+                  <div>
+                    <h3 className="font-headline text-lg font-semibold mb-1">LLM Answer:</h3>
+                    <p className="text-sm whitespace-pre-wrap bg-muted/50 p-3 rounded-md">{errorCase.llmAnswer}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-headline text-lg font-semibold mb-1">Diagnosis:</h3>
+                    <p className="text-sm whitespace-pre-wrap bg-destructive/10 p-3 rounded-md">{errorCase.diagnosis}</p>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  {/* Pass internalId to AISummary */}
+                  <AISummary llmAnswer={errorCase.llmAnswer} diagnosis={errorCase.diagnosis} internalId={errorCase.internalId} />
+                </CardFooter>
+              </AccordionContent>
+            </Card>
+          </AccordionItem>
+        </Accordion>
 
         <Card className="shadow-md">
           <CardHeader>
