@@ -1,9 +1,4 @@
 # Quick Start
-First, download this reporitory to your local environment as follows:
-```sh
-git clone https://github.com/yguo0102/LLM-Error-Case-Reviewer.git
-```
-(The download button should also work)
 
 ## Installation
 Here’s a step-by-step instruction guide to set up the environment you described on your laptop using **Anaconda** for environment management:
@@ -34,8 +29,8 @@ npm install -g firebase-tools
 * Clone the repository or download a ZIP of the project folder and extract it.
 
 ```bash
-git clone https://github.com/yguo0102/ReviewNER.git
-cd ReviewNER
+git clone https://github.com/yguo0102/LLM-Error-Case-Reviewer.git
+cd LLM-Error-Case-Reviewer
 ```
 
 ---
