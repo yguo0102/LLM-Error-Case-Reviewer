@@ -15,56 +15,9 @@ import { Separator } from '@/components/ui/separator';
 import { Filter, ListFilter, ChevronLeft, ChevronRight, Search, FileText, SlidersHorizontal, FileUp } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from "@/hooks/use-toast";
+import * as XLSX from 'xlsx';
 
 const ALL_FILTER_VALUE = "__ALL_OPTIONS__";
-
-// Helper function to parse a CSV line, handles quoted fields and escaped quotes
-function csvLineToArray(text: string): string[] {
-    const result: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    for (let i = 0; i < text.length; i++) {
-        const char = text[i];
-        if (char === '"') {
-            if (inQuotes && i + 1 < text.length && text[i+1] === '"') { // Handle "" as escaped quote
-                current += '"';
-                i++; // Skip next quote
-            } else {
-                inQuotes = !inQuotes;
-            }
-        } else if (char === ',' && !inQuotes) {
-            result.push(current.trim());
-            current = '';
-        } else {
-            current += char;
-        }
-    }
-    result.push(current.trim()); // Add the last field
-    return result;
-}
-
-// Helper function to extract the next logical CSV line, handling newlines within quoted fields.
-function extractNextLogicalLine(text: string, startIndex: number): { line: string; nextIndex: number } {
-  let inQuotes = false;
-  let endIndex = startIndex;
-  while (endIndex < text.length) {
-    const char = text[endIndex];
-    if (char === '"') {
-      // Check for escaped quote ("")
-      if (inQuotes && endIndex + 1 < text.length && text[endIndex + 1] === '"') {
-        endIndex++; 
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (char === '\n' && !inQuotes) {
-      break;
-    }
-    endIndex++;
-  }
-  const line = text.substring(startIndex, endIndex); 
-  return { line, nextIndex: endIndex < text.length ? endIndex + 1 : text.length }; 
-}
-
 
 export default function HomePage() {
   const [allCases, setAllCases] = useState<ErrorCase[]>(
@@ -115,68 +68,61 @@ export default function HomePage() {
     }
   };
 
-  const parseCSVAndSetCases = (csvFullText: string) => {
-    const trimmedCsvText = csvFullText.trim(); 
-    if (!trimmedCsvText) {
-      toast({ title: "Error parsing CSV", description: "CSV file is empty or contains only whitespace.", variant: "destructive" });
+  const parseExcelDataAndSetCases = (jsonData: any[][]) => {
+    if (!jsonData || jsonData.length < 1) {
+      toast({ title: "Error parsing Excel", description: "Excel file is empty or contains no data.", variant: "destructive" });
+      setAllCases([]);
       return;
     }
 
-    let currentIndex = 0;
-    
-    const { line: headerCsvLine, nextIndex: headerEndIndex } = extractNextLogicalLine(trimmedCsvText, currentIndex);
-    currentIndex = headerEndIndex;
-
-    if (!headerCsvLine.trim()) {
-        toast({ title: "Error parsing CSV", description: "CSV file is missing a header row.", variant: "destructive" });
+    const headerRow = jsonData[0];
+    if (!headerRow || headerRow.length === 0) {
+        toast({ title: "Error parsing Excel", description: "Excel file is missing a header row.", variant: "destructive" });
+        setAllCases([]);
         return;
     }
     
-    const parsedHeaders = csvLineToArray(headerCsvLine.trim());
-    const headers = parsedHeaders.map(h => h.toLowerCase().trim());
+    const parsedHeaders = headerRow.map(h => String(h !== undefined ? h : "").toLowerCase().trim());
     const requiredHeaders = ['champsid', 'text', 'groundtruth_code_list', 'llm_predicted_code', 'llmanswer', 'error_type'];
-    const missingHeaders = requiredHeaders.filter(rh => !headers.includes(rh));
+    const missingHeaders = requiredHeaders.filter(rh => !parsedHeaders.includes(rh));
     
     if (missingHeaders.length > 0) {
       toast({ 
-        title: "Error parsing CSV Headers", 
+        title: "Error parsing Excel Headers", 
         description: `Missing required headers: ${missingHeaders.join(', ')}. Found headers in your file: ${parsedHeaders.join(', ')}. Ensure headers are correct and try again. Case-insensitive and trimmed.`, 
         variant: "destructive" 
       });
+      setAllCases([]);
       return;
     }
 
     const newCases: ErrorCase[] = [];
-    let logicalRowNumber = 1; 
+    const dataRows = jsonData.slice(1);
 
-    while (currentIndex < trimmedCsvText.length) {
-        logicalRowNumber++;
-        const { line: dataCsvLine, nextIndex: dataEndIndex } = extractNextLogicalLine(trimmedCsvText, currentIndex);
-        currentIndex = dataEndIndex;
-
-        const lineContentForParsing = dataCsvLine.trim();
-        if (!lineContentForParsing) continue; 
-
-        const values = csvLineToArray(lineContentForParsing);
-
-        if (values.length !== headers.length) {
-            const lineSnippet = lineContentForParsing.substring(0, 70) + (lineContentForParsing.length > 70 ? '...' : '');
-            toast({ 
-            title: "Warning parsing CSV row", 
-            description: `Row ${logicalRowNumber} (starts with: "${lineSnippet}") has ${values.length} columns, expected ${headers.length}. Skipping this row. Check for unquoted commas or formatting issues. Newlines in quoted fields are supported.`, 
-            variant: "destructive" 
-            });
-            continue;
+    dataRows.forEach((row, rowIndex) => {
+        if (!row || row.every(cell => cell === undefined || String(cell).trim() === "")) {
+            // Skip empty or effectively empty rows
+            return;
         }
 
+        if (row.length !== parsedHeaders.length && row.length > 0) { // Check row.length > 0 to avoid warning for completely blank excel rows
+            const rowSnippet = row.slice(0, 5).map(c => String(c !== undefined ? c : "").substring(0,10)).join(', ') + (row.length > 5 || row.some(c => String(c).length > 10) ? '...' : '');
+            toast({ 
+            title: "Warning parsing Excel row", 
+            description: `Row ${rowIndex + 2} (starts with: "${rowSnippet}") has ${row.length} columns, expected ${parsedHeaders.length}. Skipping this row.`, 
+            variant: "destructive" 
+            });
+            return;
+        }
+        
         const entry: any = {};
-        headers.forEach((header, index) => {
-            entry[header] = values[index] || ""; 
+        parsedHeaders.forEach((header, index) => {
+            entry[header] = String(row[index] !== undefined ? row[index] : ""); 
         });
         
         const errorCase: ErrorCase = {
-            internalId: `csv-${logicalRowNumber}-${Date.now()}-${entry.champsid || 'no_id'}`, 
-            champsid: entry.champsid || `GEN_ID_${Date.now()}_${logicalRowNumber}`,
+            internalId: `excel-${rowIndex + 2}-${Date.now()}-${entry.champsid || 'no_id'}`, 
+            champsid: entry.champsid || `GEN_ID_${Date.now()}_${rowIndex + 2}`,
             text: entry.text || "",
             groundtruth_code_list: entry.groundtruth_code_list || "",
             llm_predicted_code: entry.llm_predicted_code || "",
@@ -184,19 +130,21 @@ export default function HomePage() {
             llmAnswer: entry.llmanswer || "", 
         };
         newCases.push(errorCase);
-    }
+    });
 
     if (newCases.length > 0) {
       setAllCases(newCases);
       setCurrentCaseIndex(0);
       setFilters({ error_type: '', code: '', champsid: '' }); 
-      toast({ title: "CSV data loaded successfully!", description: `${newCases.length} cases loaded.` });
+      toast({ title: "Excel data loaded successfully!", description: `${newCases.length} cases loaded.` });
     } else { 
-      if (headerCsvLine.trim()) { 
-        setAllCases([]); 
-        setCurrentCaseIndex(0);
-        setFilters({ error_type: '', code: '', champsid: '' });
-        toast({ title: "No data loaded", description: "No valid data rows found in the CSV. This can happen if all data rows were empty or had parsing issues (e.g., column count mismatch for all rows). Please check individual row warnings.", variant: "default" });
+      setAllCases([]); 
+      setCurrentCaseIndex(0);
+      setFilters({ error_type: '', code: '', champsid: '' });
+      if (jsonData.length > 1) { // If there were data rows but none were valid
+        toast({ title: "No data loaded", description: "No valid data rows found in the Excel file. This can happen if all data rows were empty or had parsing issues (e.g., column count mismatch for all rows). Please check individual row warnings.", variant: "default" });
+      } else { // Only header or empty file
+         toast({ title: "No data loaded", description: "Excel file contained no data rows.", variant: "default" });
       }
     }
   };
@@ -204,18 +152,28 @@ export default function HomePage() {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.type !== "text/csv") {
-        toast({ title: "Invalid file type", description: "Please upload a .csv file.", variant: "destructive" });
+      const validTypes = ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel"];
+      if (!validTypes.includes(file.type)) {
+        toast({ title: "Invalid file type", description: "Please upload an .xlsx or .xls file.", variant: "destructive" });
         event.target.value = ""; 
         return;
       }
       const reader = new FileReader();
       reader.onload = (e) => {
-        const text = e.target?.result as string;
-        if (text) {
-          parseCSVAndSetCases(text);
-        } else {
-          toast({ title: "Error reading file", description: "Could not read file content.", variant: "destructive" });
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          if (!firstSheetName) {
+            toast({ title: "Error reading Excel", description: "No sheets found in the Excel file.", variant: "destructive" });
+            return;
+          }
+          const worksheet = workbook.Sheets[firstSheetName];
+          const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false });
+          parseExcelDataAndSetCases(jsonData);
+        } catch (error) {
+          console.error("Error processing Excel file:", error);
+          toast({ title: "Error processing Excel file", description: "Could not process the file. Ensure it is a valid Excel file.", variant: "destructive" });
         }
         event.target.value = ""; 
       };
@@ -223,7 +181,7 @@ export default function HomePage() {
         toast({ title: "Error reading file", description: "An error occurred while trying to read the file.", variant: "destructive" });
         event.target.value = ""; 
       };
-      reader.readAsText(file);
+      reader.readAsArrayBuffer(file);
     }
   };
 
@@ -250,16 +208,16 @@ export default function HomePage() {
               </CardHeader>
               <CardContent className="space-y-2">
                 <div>
-                  <Label htmlFor="csv_upload">Upload CSV File</Label>
+                  <Label htmlFor="excel_upload">Upload Excel File</Label>
                   <Input
-                    id="csv_upload"
+                    id="excel_upload"
                     type="file"
-                    accept=".csv"
+                    accept=".xlsx, .xls"
                     onChange={handleFileUpload}
                     className="mt-1 file:mr-2 file:rounded file:border-0 file:bg-primary/10 file:px-2 file:py-1 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Headers (case-insensitive, trimmed): champsid, text, groundtruth_code_list, llm_predicted_code, llmanswer, error_type. Fields can contain newlines if properly quoted.
+                    First sheet used. Headers (case-insensitive, trimmed): champsid, text, groundtruth_code_list, llm_predicted_code, llmanswer, error_type.
                   </p>
                 </div>
               </CardContent>
@@ -353,7 +311,7 @@ export default function HomePage() {
                     </SelectTrigger>
                     <SelectContent>
                       {filteredCases.map(c => (
-                        <SelectItem key={c.internalId} value={c.internalId}>{c.champsid} {c.internalId.startsWith('csv-') ? `(CSV Row ${c.internalId.split('-')[1]})` : ''}</SelectItem>
+                        <SelectItem key={c.internalId} value={c.internalId}>{c.champsid} {c.internalId.startsWith('excel-') ? `(Excel Row ${c.internalId.split('-')[1]})` : (c.internalId.startsWith('mock-') ? `(Mock ${c.internalId.split('-')[1]})` : '')}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -386,7 +344,3 @@ export default function HomePage() {
     </SidebarProvider>
   );
 }
-    
-
-    
-
