@@ -1,4 +1,10 @@
 # Quick Start
+First, download this reporitory to your local environment as follows:
+```sh
+git clone https://github.com/yguo0102/LLM-Error-Case-Reviewer.git
+```
+(The download button should also work)
+
 ## Installation
 Here’s a step-by-step instruction guide to set up the environment you described on your laptop using **Anaconda** for environment management:
 
