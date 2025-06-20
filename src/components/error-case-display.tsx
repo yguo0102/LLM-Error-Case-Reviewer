@@ -2,7 +2,7 @@
 "use client";
 
 import type { ErrorCase } from '@/types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EvidenceHighlighter } from './evidence-highlighter';
 import { ScrollArea } from './ui/scroll-area';
@@ -41,20 +41,13 @@ export function ErrorCaseDisplay({ errorCase }: ErrorCaseDisplayProps) {
                 <CardContent className="space-y-4 pt-0">
                   <div>
                     <h3 className="font-headline text-lg font-semibold mb-1">Full Text:</h3>
-                    <EvidenceHighlighter text={errorCase.text} evidence={errorCase.evidence} />
+                    <EvidenceHighlighter text={errorCase.text} evidence={[]} />
                   </div>
                   <div>
                     <h3 className="font-headline text-lg font-semibold mb-1">LLM Answer:</h3>
                     <p className="text-sm whitespace-pre-wrap bg-muted/50 p-3 rounded-md">{errorCase.llmAnswer}</p>
                   </div>
-                  <div>
-                    <h3 className="font-headline text-lg font-semibold mb-1">Diagnosis:</h3>
-                    <p className="text-sm whitespace-pre-wrap bg-destructive/10 p-3 rounded-md">{errorCase.diagnosis}</p>
-                  </div>
                 </CardContent>
-                <CardFooter>
-                  {/* AI Summary component was here */}
-                </CardFooter>
               </AccordionContent>
             </Card>
           </AccordionItem>
@@ -62,38 +55,16 @@ export function ErrorCaseDisplay({ errorCase }: ErrorCaseDisplayProps) {
 
         <Card className="shadow-md">
           <CardHeader>
-            <CardTitle className="font-headline text-lg">LLM Analysis</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h4 className="font-semibold mb-1">Evidence Used by LLM:</h4>
-              {errorCase.evidence.length > 0 ? (
-                 <ul className="list-disc list-inside pl-4 space-y-1">
-                  {errorCase.evidence.map((ev, index) => (
-                    <li key={index} className="text-sm bg-accent/10 p-2 rounded-md whitespace-pre-wrap">
-                      <span className="italic">{ev}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">No specific evidence cited by LLM.</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-md">
-          <CardHeader>
             <CardTitle className="font-headline text-lg">Code Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <h4 className="font-semibold mb-1">Code:</h4>
-              <pre className="bg-muted/50 p-3 rounded-md text-sm overflow-x-auto font-code"><code>{errorCase.code}</code></pre>
+              <h4 className="font-semibold mb-1">Groundtruth Code:</h4>
+              <pre className="bg-muted/50 p-3 rounded-md text-sm overflow-x-auto font-code"><code>{errorCase.groundtruth_code_list}</code></pre>
             </div>
             <div>
-              <h4 className="font-semibold mb-1">Code Description:</h4>
-              <p className="text-sm whitespace-pre-wrap">{errorCase.code_description}</p>
+              <h4 className="font-semibold mb-1">LLM Predicted Code:</h4>
+              <pre className="bg-muted/50 p-3 rounded-md text-sm overflow-x-auto font-code"><code>{errorCase.llm_predicted_code}</code></pre>
             </div>
           </CardContent>
         </Card>

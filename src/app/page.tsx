@@ -52,19 +52,17 @@ function extractNextLogicalLine(text: string, startIndex: number): { line: strin
     if (char === '"') {
       // Check for escaped quote ("")
       if (inQuotes && endIndex + 1 < text.length && text[endIndex + 1] === '"') {
-        endIndex++; // Increment to include the first quote of the pair, the loop will add the second
+        endIndex++; 
       } else {
         inQuotes = !inQuotes;
       }
     } else if (char === '\n' && !inQuotes) {
-      // If newline is encountered and not in quotes, it's the end of the logical line
       break;
     }
     endIndex++;
   }
-  // If endIndex reached text.length, it means the last line doesn't end with \n or it's a quoted multiline field at EOF
-  const line = text.substring(startIndex, endIndex); // endIndex will be at \n or text.length
-  return { line, nextIndex: endIndex < text.length ? endIndex + 1 : text.length }; // nextIndex skips the \n
+  const line = text.substring(startIndex, endIndex); 
+  return { line, nextIndex: endIndex < text.length ? endIndex + 1 : text.length }; 
 }
 
 
@@ -72,7 +70,7 @@ export default function HomePage() {
   const [allCases, setAllCases] = useState<ErrorCase[]>(
     mockErrorCases.map((c, index) => ({
       ...c,
-      internalId: `mock-${index}-${c.champsid}`, // Assign unique internalId to mock data
+      internalId: `mock-${index}-${c.champsid}`, 
     }))
   );
   const [filteredCases, setFilteredCases] = useState<ErrorCase[]>(allCases);
@@ -81,7 +79,7 @@ export default function HomePage() {
   const { toast } = useToast();
 
   const uniqueErrorTypes = useMemo(() => Array.from(new Set(allCases.map(c => c.error_type))), [allCases]);
-  const uniqueCodes = useMemo(() => Array.from(new Set(allCases.map(c => c.code))), [allCases]);
+  const uniqueCodes = useMemo(() => Array.from(new Set(allCases.map(c => c.llm_predicted_code))), [allCases]);
 
   useEffect(() => {
     let cases = allCases;
@@ -89,7 +87,7 @@ export default function HomePage() {
       cases = cases.filter(c => c.error_type === filters.error_type);
     }
     if (filters.code && filters.code !== ALL_FILTER_VALUE) {
-      cases = cases.filter(c => c.code === filters.code);
+      cases = cases.filter(c => c.llm_predicted_code === filters.code);
     }
     if (filters.champsid) {
       cases = cases.filter(c => c.champsid.toLowerCase().includes(filters.champsid.toLowerCase()));
@@ -136,13 +134,13 @@ export default function HomePage() {
     
     const parsedHeaders = csvLineToArray(headerCsvLine.trim());
     const headers = parsedHeaders.map(h => h.toLowerCase().trim());
-    const requiredHeaders = ['champsid', 'text', 'code', 'code_description', 'diagnosis', 'error_type', 'llmanswer', 'evidence'];
+    const requiredHeaders = ['champsid', 'text', 'groundtruth_code_list', 'llm_predicted_code', 'llmanswer', 'error_type'];
     const missingHeaders = requiredHeaders.filter(rh => !headers.includes(rh));
     
     if (missingHeaders.length > 0) {
       toast({ 
         title: "Error parsing CSV Headers", 
-        description: `Missing required headers: ${missingHeaders.join(', ')}. Found headers in your file: ${parsedHeaders.join(', ')}. Note: 'llmAnswer' in type is 'llmanswer' in CSV header. Ensure headers are correct and try again. Case-insensitive and trimmed.`, 
+        description: `Missing required headers: ${missingHeaders.join(', ')}. Found headers in your file: ${parsedHeaders.join(', ')}. Ensure headers are correct and try again. Case-insensitive and trimmed.`, 
         variant: "destructive" 
       });
       return;
@@ -176,22 +174,14 @@ export default function HomePage() {
             entry[header] = values[index] || ""; 
         });
         
-        let evidenceArray: string[] = [];
-        const evidenceRaw = entry.evidence || ""; 
-        if (evidenceRaw && evidenceRaw.trim() !== "") {
-            evidenceArray = [evidenceRaw.trim()]; 
-        }
-
         const errorCase: ErrorCase = {
-            internalId: `csv-${logicalRowNumber}-${Date.now()}-${entry.champsid || 'no_id'}`, // Generate unique internalId
+            internalId: `csv-${logicalRowNumber}-${Date.now()}-${entry.champsid || 'no_id'}`, 
             champsid: entry.champsid || `GEN_ID_${Date.now()}_${logicalRowNumber}`,
             text: entry.text || "",
-            code: entry.code || "",
-            code_description: entry.code_description || "",
-            diagnosis: entry.diagnosis || "",
+            groundtruth_code_list: entry.groundtruth_code_list || "",
+            llm_predicted_code: entry.llm_predicted_code || "",
             error_type: entry.error_type || "",
             llmAnswer: entry.llmanswer || "", 
-            evidence: evidenceArray,
         };
         newCases.push(errorCase);
     }
@@ -269,8 +259,7 @@ export default function HomePage() {
                     className="mt-1 file:mr-2 file:rounded file:border-0 file:bg-primary/10 file:px-2 file:py-1 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Headers (case-insensitive, trimmed): champsid, text, code, code_description, diagnosis, error_type, llmanswer, evidence.
-                    'evidence' column should contain textual evidence as a single string. Fields can contain newlines if properly quoted.
+                    Headers (case-insensitive, trimmed): champsid, text, groundtruth_code_list, llm_predicted_code, llmanswer, error_type. Fields can contain newlines if properly quoted.
                   </p>
                 </div>
               </CardContent>
@@ -303,7 +292,7 @@ export default function HomePage() {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="code_filter">Code Snippet</Label>
+                  <Label htmlFor="code_filter">LLM Predicted Code</Label>
                   <Select 
                     value={filters.code || ALL_FILTER_VALUE} 
                     onValueChange={value => handleFilterChange('code', value)}
@@ -315,7 +304,7 @@ export default function HomePage() {
                     <SelectContent>
                       <SelectItem value={ALL_FILTER_VALUE}>All Codes</SelectItem>
                       {uniqueCodes.map((code, i) => (
-                        <SelectItem key={i} value={code || `_EMPTY_CODE_${i}`}>
+                        <SelectItem key={`${code}-${i}`} value={code || `_EMPTY_CODE_${i}`}>
                           <span className="font-code truncate block max-w-xs">
                             {code ? (code.split('\n')[0] + (code.includes('\n') || code.length > 30 ? '...' : '')) : '(Empty Code)'}
                           </span>
@@ -400,3 +389,4 @@ export default function HomePage() {
     
 
     
+
