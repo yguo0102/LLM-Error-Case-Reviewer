@@ -1,6 +1,5 @@
 # Quick Start
 
-## Installation
 Here’s a step-by-step instruction guide to set up the environment you described on your laptop using **Anaconda** for environment management:
 
 ---
