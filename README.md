@@ -8,7 +8,6 @@ Here’s a step-by-step instruction guide to set up the environment you describe
 
 ```bash
 conda create -n webenv nodejs=20 openjdk=11 -c conda-forge -y
-# or 
 conda activate webenv
 ```
 
