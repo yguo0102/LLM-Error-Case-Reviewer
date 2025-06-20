@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarTrigger, SidebarContent, SidebarInset, SidebarFooter } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
-import { Filter, ListFilter, ChevronLeft, ChevronRight, Search, FileText, SlidersHorizontal, FileUp } from 'lucide-react';
+import { ListFilter, ChevronLeft, ChevronRight, Search, FileText, SlidersHorizontal, FileUp, Code2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
@@ -32,15 +32,14 @@ export default function HomePage() {
   const { toast } = useToast();
 
   const uniqueErrorTypes = useMemo(() => Array.from(new Set(allCases.map(c => c.error_type))), [allCases]);
-  const uniqueCodes = useMemo(() => Array.from(new Set(allCases.map(c => c.llm_predicted_code))), [allCases]);
 
   useEffect(() => {
     let cases = allCases;
     if (filters.error_type && filters.error_type !== ALL_FILTER_VALUE) {
       cases = cases.filter(c => c.error_type === filters.error_type);
     }
-    if (filters.code && filters.code !== ALL_FILTER_VALUE) {
-      cases = cases.filter(c => c.llm_predicted_code === filters.code);
+    if (filters.code) { // Search by LLM predicted code
+      cases = cases.filter(c => c.llm_predicted_code.toLowerCase().includes(filters.code.toLowerCase()));
     }
     if (filters.champsid) {
       cases = cases.filter(c => c.champsid.toLowerCase().includes(filters.champsid.toLowerCase()));
@@ -101,11 +100,10 @@ export default function HomePage() {
 
     dataRows.forEach((row, rowIndex) => {
         if (!row || row.every(cell => cell === undefined || String(cell).trim() === "")) {
-            // Skip empty or effectively empty rows
             return;
         }
 
-        if (row.length !== parsedHeaders.length && row.length > 0) { // Check row.length > 0 to avoid warning for completely blank excel rows
+        if (row.length !== parsedHeaders.length && row.length > 0) {
             const rowSnippet = row.slice(0, 5).map(c => String(c !== undefined ? c : "").substring(0,10)).join(', ') + (row.length > 5 || row.some(c => String(c).length > 10) ? '...' : '');
             toast({ 
             title: "Warning parsing Excel row", 
@@ -141,9 +139,9 @@ export default function HomePage() {
       setAllCases([]); 
       setCurrentCaseIndex(0);
       setFilters({ error_type: '', code: '', champsid: '' });
-      if (jsonData.length > 1) { // If there were data rows but none were valid
+      if (jsonData.length > 1) { 
         toast({ title: "No data loaded", description: "No valid data rows found in the Excel file. This can happen if all data rows were empty or had parsing issues (e.g., column count mismatch for all rows). Please check individual row warnings.", variant: "default" });
-      } else { // Only header or empty file
+      } else { 
          toast({ title: "No data loaded", description: "Excel file contained no data rows.", variant: "default" });
       }
     }
@@ -250,26 +248,19 @@ export default function HomePage() {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="code_filter">LLM Predicted Code</Label>
-                  <Select 
-                    value={filters.code || ALL_FILTER_VALUE} 
-                    onValueChange={value => handleFilterChange('code', value)}
-                    disabled={allCases.length === 0}
-                  >
-                    <SelectTrigger id="code_filter">
-                      <SelectValue placeholder="All Codes" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={ALL_FILTER_VALUE}>All Codes</SelectItem>
-                      {uniqueCodes.map((code, i) => (
-                        <SelectItem key={`${code}-${i}`} value={code || `_EMPTY_CODE_${i}`}>
-                          <span className="font-code truncate block max-w-xs">
-                            {code ? (code.split('\n')[0] + (code.includes('\n') || code.length > 30 ? '...' : '')) : '(Empty Code)'}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="code_filter">Search LLM Predicted Code</Label>
+                  <div className="relative">
+                    <Code2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      id="code_filter"
+                      type="text" 
+                      placeholder="Search in predicted code..." 
+                      value={filters.code}
+                      onChange={e => handleFilterChange('code', e.target.value)}
+                      className="pl-8"
+                      disabled={allCases.length === 0}
+                    />
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="champsid_filter">Case ID</Label>
@@ -344,3 +335,4 @@ export default function HomePage() {
     </SidebarProvider>
   );
 }
+
